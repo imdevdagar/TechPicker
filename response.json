@@ -1,0 +1,37 @@
+{
+  "recommendations": [
+      {
+         "rank": 1,
+         "name": "Xiaomi Redmi 12 5G",
+         "release_year": 2023,
+         "price": "₹9,999",
+         "confidence_score": 90,
+         "pros": ["Good performance with MediaTek Dimensity 700 processor", "Decent camera with 50MP primary sensor", "Long-lasting 5000mAh battery"],
+         "cons": ["No high refresh rate display", "Average low-light camera performance"],
+         "verdict": "A well-rounded budget 5G smartphone with good performance and a long-lasting battery.",
+         "google_search_link": "https://www.google.com/search?q=Xiaomi+Redmi+12+5G"
+      },
+      {
+         "rank": 2,
+         "name": "Motorola Moto e14",
+         "release_year": 2022,
+         "price": "₹7,499",
+         "confidence_score": 75,
+         "pros": ["Good battery life with 4000mAh battery", "Decent camera with 8MP primary sensor", "Affordable price"],
+         "cons": ["Average performance with MediaTek Helio A22 processor", "No 5G support"],
+         "verdict": "A budget-friendly smartphone with good battery life and a decent camera.",
+         "google_search_link": "https://www.google.com/search?q=Motorola+Moto+e14"
+      },
+      {
+         "rank": 3,
+         "name": "Vivo Y37c",
+         "release_year": 2023,
+         "price": "₹7,999",
+         "confidence_score": 80,
+         "pros": ["Good performance with MediaTek Helio G85 processor", "Decent camera with 50MP primary sensor", "Fingerprint sensor"],
+         "cons": ["Average battery life with 5000mAh battery", "No 5G support"],
+         "verdict": "A budget smartphone with good performance and a decent camera.",
+         "google_search_link": "https://www.google.com/search?q=Vivo+Y37c"
+      }
+   ]
+}
