@@ -1,4 +1,4 @@
-# TechPickr - AI Smartphone Recommender
+# TechPicker - AI Smartphone Recommender
 
 TechPickr is an intelligent AI-powered tech recommender that scrapes the latest live prices from the Indian market (Smartprix) and uses a powerful LLM to match the perfect device to your exact requirements. 
 
