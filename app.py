@@ -350,14 +350,16 @@ def fetch_youtube_reviews(product_name: str) -> str:
         return ""
 
 
-def get_recommendations(category: str, budget: int, requirements: str, shopping_results: list, review_text: str, youtube_data: dict) -> list:
+def get_recommendations(category: str, budget: int, requirements: str, shopping_results: list, review_text: str, youtube_data: dict) -> tuple[list, str]:
     """Send search data to Groq LLM and get structured recommendations."""
     api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
-        st.error("❌ GROQ_API_KEY environment variable is not set.")
-        st.stop()
+        return [], "GROQ_API_KEY environment variable is not set. Please add it to your Streamlit Cloud Secrets or .env file."
 
-    client = Groq(api_key=api_key)
+    try:
+        client = Groq(api_key=api_key)
+    except Exception as e:
+        return [], f"Failed to initialize Groq client: {e}"
     
     current_year = datetime.datetime.now().year
     last_year = current_year - 1
@@ -444,13 +446,8 @@ Return ONLY a valid JSON object with a 'recommendations' key containing the arra
             )
     
             text = response.choices[0].message.content.strip()
-            
-            with open("last_llm_response.txt", "w", encoding="utf-8") as f:
-                f.write(text)
-                
             text = html.unescape(text)
             
-            # Strip markdown json blocks if the model hallucinates them
             if text.startswith("```"):
                 import re
                 match = re.search(r'```(?:json)?(.*?)```', text, re.DOTALL)
@@ -468,23 +465,19 @@ Return ONLY a valid JSON object with a 'recommendations' key containing the arra
             elif isinstance(data, list):
                 raw_recs = data
                 
-            # Strict JSON validation
             valid_recs = []
             for r in raw_recs:
                 if isinstance(r, dict) and r.get("name") and r.get("price") and isinstance(r.get("pros"), list):
                     valid_recs.append(r)
             
             if valid_recs:
-                return valid_recs[:3]
+                return valid_recs[:3], None
                 
         except Exception as e:
             last_error = e
-            continue  # Try the next model
-            
-    st.error(f"❌ AI Error (All fallback models failed): {last_error}")
-    with open("last_llm_error.txt", "w", encoding="utf-8") as f:
-        f.write(str(last_error))
-    return []
+            continue
+
+    return [], str(last_error) if last_error else "All AI models returned invalid response structure."
 
 
 def render_card(rec: dict):
@@ -616,12 +609,15 @@ if search_btn:
                         pass
                         
             status.update(label="🤖 Analyzing everything with AI...")
-            recommendations = get_recommendations(category, budget, requirements, shopping_results, review_text, youtube_data)
+            recommendations, error_msg = get_recommendations(category, budget, requirements, shopping_results, review_text, youtube_data)
             
-            status.update(label="✅ Done! Here are your top picks.", state="complete", expanded=False)
+            status.update(label="✅ Done!", state="complete", expanded=False)
 
         if not recommendations:
-            st.error("Couldn't generate recommendations. Please try again.")
+            if error_msg:
+                st.error(f"❌ Could not generate recommendations: {error_msg}")
+            else:
+                st.error("Couldn't generate recommendations. Please try again.")
         else:
             st.markdown(f"### 🏆 Top {len(recommendations)} picks under ₹{budget:,}")
             st.caption(f"🔑 API calls saved by cache: {st.session_state.cache_hits}")
