@@ -412,7 +412,19 @@ Return ONLY a valid JSON object with a 'recommendations' key containing the arra
 }}
 """
 
-    models_to_try = ["llama-3.1-8b-instant", "mixtral-8x7b-32768", "gemma2-9b-it"]
+    dynamic_models = []
+    try:
+        m_list = client.models.list()
+        dynamic_models = [m.id for m in m_list.data if not any(k in m.id for k in ['whisper', 'guard', 'orpheus', 'embed'])]
+    except Exception:
+        pass
+
+    fallback_models = ["qwen/qwen3.8-27b", "openai/gpt-oss-120b", "openai/gpt-oss-20b", "allam-2-7b"]
+    models_to_try = []
+    for m in dynamic_models + fallback_models:
+        if m not in models_to_try:
+            models_to_try.append(m)
+
     last_error = None
     
     for model_name in models_to_try:
