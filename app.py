@@ -215,7 +215,6 @@ def scrape_smartprix(category: str, budget: int, requirements: str) -> list:
     import requests
     from bs4 import BeautifulSoup
     
-    # Create a strict price bracket to force budget maximization (80% to 110% of budget)
     min_budget = int(budget * 0.80)
     max_budget = int(budget * 1.1)
     
@@ -232,14 +231,14 @@ def scrape_smartprix(category: str, budget: int, requirements: str) -> list:
     }
     
     try:
-        response = requests.get(url, headers=headers, timeout=10)
+        response = requests.get(url, headers=headers, timeout=4)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
         
         full_products = []
         items = soup.select(".sm-product")
         
-        for card in items[:15]:  # Aggressively limited to 15 to stay under Groq's strict 6000 TPM limit
+        for card in items[:15]:
             try:
                 name_el = card.select_one("h2, h3, .name, .sm-title, [class*='name'], [class*='title']")
                 price_el = card.select_one(".price, [class*='price']")
@@ -252,13 +251,11 @@ def scrape_smartprix(category: str, budget: int, requirements: str) -> list:
             except Exception:
                 continue
                 
-            # Strictly filter out devices that are too cheap to force budget maximization
             if price_text != "N/A":
                 import re
                 nums = re.findall(r'\d+', price_text)
                 if nums:
                     price_val = int("".join(nums))
-                    # Ignore anything less than 75% of the budget
                     if price_val < (budget * 0.75):
                         continue
                         
@@ -267,7 +264,6 @@ def scrape_smartprix(category: str, budget: int, requirements: str) -> list:
             for spec in specs_els:
                 txt = spec.get_text(strip=True)
                 if txt:
-                    # Treat each spec bullet as a key-value pair of Spec -> "Yes" for the AI
                     specs_dict[txt] = "Yes"
                     
             full_products.append({
@@ -280,18 +276,18 @@ def scrape_smartprix(category: str, budget: int, requirements: str) -> list:
         return full_products
         
     except Exception as e:
-        print(f"Scrape error: {e}")
+        print(f"Scrape error (falling back to AI knowledge): {e}")
         return []
 
 
 def get_reviews(category: str, budget: int, requirements: str) -> tuple[str, list[str]]:
     import datetime
     current_year = datetime.datetime.now().year
-    query = f"best {category} under {budget} India {current_year} {requirements} review specs site:91mobiles.com OR site:gsmarena.com OR site:ndtvgadgets.com"
+    query = f"best {category} under {budget} India {current_year} {requirements} review specs"
     
     try:
         ddgs = DDGS()
-        results = list(ddgs.text(query, region="in-en", timelimit="y", max_results=5))
+        results = list(ddgs.text(query, region="in-en", timelimit="y", max_results=3))
     except Exception:
         return "", []
 
@@ -299,17 +295,28 @@ def get_reviews(category: str, budget: int, requirements: str) -> tuple[str, lis
     fetched_urls = []
     urls_to_fetch = [r.get('href') for r in results if r.get('href')][:3]
     
-    for url in urls_to_fetch:
+    def fetch_single_url(u):
         try:
-            downloaded = trafilatura.fetch_url(url)
+            downloaded = trafilatura.fetch_url(u, no_ssl=True)
             if downloaded:
                 text = trafilatura.extract(downloaded)
                 if text and len(text) > 300:
-                    snippets.append(f"Source: {url}\n{text[:2000]}")
-                    fetched_urls.append(url)
+                    return u, f"Source: {u}\n{text[:1500]}"
         except Exception:
-            continue
-            
+            pass
+        return u, None
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+        future_to_url = {executor.submit(fetch_single_url, url): url for url in urls_to_fetch}
+        for future in concurrent.futures.as_completed(future_to_url, timeout=3):
+            try:
+                url_res, content = future.result(timeout=1)
+                if content:
+                    snippets.append(content)
+                    fetched_urls.append(url_res)
+            except Exception:
+                continue
+
     return "\n\n".join(snippets), fetched_urls
 
 
@@ -585,14 +592,16 @@ if search_btn:
                     future_reviews = executor.submit(get_reviews, category, budget, requirements)
                     
                     try:
-                        shopping_results = future_shopping.result()
+                        shopping_results = future_shopping.result(timeout=4)
                         if shopping_results:
                             st.session_state[cache_key] = (shopping_results, time.time())
                     except Exception as e:
                         shopping_results = []
-                        st.warning(f"Failed to fetch live prices: {e}")
                     
-                    review_text, fetched_urls = future_reviews.result()
+                    try:
+                        review_text, fetched_urls = future_reviews.result(timeout=4)
+                    except Exception:
+                        review_text, fetched_urls = "", []
             
             status.update(label="🎥 Fetching YouTube reviews for top products...")
             youtube_data = {}
@@ -600,9 +609,12 @@ if search_btn:
                 top_3_titles = [r.get("name", "") for r in shopping_results[:3]]
                 with concurrent.futures.ThreadPoolExecutor() as yt_executor:
                     yt_futures = {yt_executor.submit(fetch_youtube_reviews, title): title for title in top_3_titles if title}
-                    for future in concurrent.futures.as_completed(yt_futures):
-                        title = yt_futures[future]
-                        youtube_data[title] = future.result()
+                    try:
+                        for future in concurrent.futures.as_completed(yt_futures, timeout=3):
+                            title = yt_futures[future]
+                            youtube_data[title] = future.result(timeout=1)
+                    except Exception:
+                        pass
                         
             status.update(label="🤖 Analyzing everything with AI...")
             recommendations = get_recommendations(category, budget, requirements, shopping_results, review_text, youtube_data)
