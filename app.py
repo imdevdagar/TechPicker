@@ -548,24 +548,23 @@ with col1:
 with col2:
     budget = st.number_input("💰 Max Budget (₹)", min_value=5000, max_value=500000, value=20000, step=1000)
 
-selected_priorities = st.multiselect(
-    "🎯 Main Priorities",
+priority = st.radio(
+    "🎯 Main Priority Focus",
     options=[
-        "Best Overall / Balanced",
-        "Camera & Photography", 
-        "Raw Performance & Speed", 
-        "Battery Life", 
-        "Display Quality & Brightness", 
-        "Heavy Gaming", 
-        "Fast Charging", 
-        "Clean Software & Updates", 
-        "Premium Build & Design"
+        "⚡ Best Overall / Balanced",
+        "📸 Camera & Photography Focus", 
+        "🚀 Raw Performance & Speed", 
+        "🎮 Heavy Gaming & Graphics", 
+        "🔋 Long Battery Life & Fast Charging", 
+        "✨ Display Quality & Entertainment", 
+        "🧹 Clean Software & Long Updates", 
+        "💎 Premium Build & Sleek Design"
     ],
-    default=[],
-    help="Select the features that matter most to you to help the AI find the perfect match."
+    index=0,
+    help="Select your single #1 priority to help the AI find the perfect match."
 )
 
-requirements = ", ".join(selected_priorities) if selected_priorities else "Best Overall / Balanced"
+requirements = priority
 
 search_btn = st.button("🔍 Find Best Options", type="primary", use_container_width=True)
 
